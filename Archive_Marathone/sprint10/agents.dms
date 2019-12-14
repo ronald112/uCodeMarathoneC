@@ -1,0 +1,20 @@
+agent {
+	name: Bond
+	power: 1
+	strength: 9
+}
+agent {
+	name: Smith
+	power: 3
+	strength: 1
+}
+agent {
+	name: Mulder
+	power: 5
+	strength: 2
+}
+agent {
+	name: Snowden
+	power: 8
+	strength: 3
+}

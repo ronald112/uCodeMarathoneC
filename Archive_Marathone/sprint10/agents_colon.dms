@@ -1,0 +1,5 @@
+agent {
+	name: Bond
+	power 1
+	strength: 9
+}
