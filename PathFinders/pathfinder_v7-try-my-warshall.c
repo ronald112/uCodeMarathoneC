@@ -3,8 +3,10 @@
 typedef struct s_graph {
     char *file_str;
     // Matrix
-    int **array;
+    int **weight;
+    int **cp_w_weight;
     char **isld;
+
 }t_graph;
 
 typedef struct s_main {
@@ -12,20 +14,26 @@ typedef struct s_main {
     int nmb_isld;
     char *str;
     char *delims;
+    // warshall
+    char *add_arow;
+    char *add_plus;
+    int cnt_loop;
+    int rws;
+    int clmn;
 }t_main;
 
-// typedef struct s_dijkstra {
-// 	int *isld_nm;
-// 	bool *is_chk;
-// 	int *parent;
-// }t_dijkstra;
+typedef struct s_dijkstra {
+    int *isld_nm;
+    bool *is_chk;
+    int *parent;
+}t_dijkstra;
 
-typedef struct s_way_dijkstra {
-    int isld_nm;
-    bool is_chk;
-    int parent;
-    struct s_way *next;
-}t_way_dijkstra;
+typedef struct s_warshall {
+    char *w_path;
+    char *w_route;
+    char *w_dist;    
+    struct s_warshall *next;
+}t_warshall;
 
 t_main *create_vars(int fd, int nmb_isld) {
     t_main* util_vars = (t_main*)malloc(sizeof(t_main));
@@ -41,13 +49,13 @@ t_graph *create_graph(t_main *vars) {
 
     main_graph->file_str = NULL;
 
-    main_graph->array = (int**)malloc(vars->nmb_isld * sizeof(int*));
+    main_graph->weight = (int**)malloc(vars->nmb_isld * sizeof(int*));
     for (int i = 0; i < vars->nmb_isld; i++) 
-        main_graph->array[i] = (int*)malloc(vars->nmb_isld * sizeof(int));		
+        main_graph->weight[i] = (int*)malloc(vars->nmb_isld * sizeof(int));		
     
     for (int i = 0; i < vars->nmb_isld; i++) 
         for (int j = 0; j < vars->nmb_isld; j++) 
-            main_graph->array[i][j] = 0;
+            main_graph->weight[i][j] = INT_MAX;
 
     return main_graph;
 }
@@ -101,8 +109,7 @@ static void mx_check_valid_file(int nmb_argc,
 char const *rl_argv, t_main *vars) {
     int str = -1;
     
-    mx_first_check(&vars->fd, nmb_argc, rl_argv);
-       
+    mx_first_check(&vars->fd, nmb_argc, rl_argv);	   
     if ((str = mx_read_line(&vars->str, 1, '\n', vars->fd)) < 0) {
         mx_printerr("error: file ");
         mx_printerr(rl_argv);
@@ -124,6 +131,7 @@ char const *rl_argv, t_main *vars) {
 // add a smb(s2) to the string(s1)
 static char *strjoin_mod(char *s1, char s2) {
     char *result = NULL;
+
     if (!s1 && !s2) return result;
     else if (!s2) {
         result = mx_strdup(s1);
@@ -142,6 +150,7 @@ static char *strjoin_mod(char *s1, char s2) {
 // copy and delete src string
 static char *govno(char *str, char *arr){	
     char *temp = mx_strjoin(str, arr);
+
     if (str) mx_strdel(&str);
     return temp;
 }
@@ -149,9 +158,10 @@ static char *govno(char *str, char *arr){
 static char **crt_isld_matrix(t_main *vars, t_graph *graph){	
     char **isld = (char**)malloc(vars->nmb_isld * sizeof(char*));
 
-    for (int k = 0, i = 0, rslt_rdln = 1; rslt_rdln > 0 ; i++) 
+    for (int k = 0, i = 0, rslt_rdln = 1; rslt_rdln > 0 ; i++) {
         for (int j = 0, flag = 1; j < 3; j++) {
-            if ((rslt_rdln = mx_read_line(&vars->str, 1, vars->delims[j], vars->fd)) < 1) break;
+
+            if ((rslt_rdln = mx_read_line(&vars->str, 1024, vars->delims[j], vars->fd)) < 1) break;
             graph->file_str = govno(graph->file_str, vars->str);
             graph->file_str = strjoin_mod(graph->file_str, vars->delims[j]);
 
@@ -167,6 +177,7 @@ static char **crt_isld_matrix(t_main *vars, t_graph *graph){
             else mx_wrong_line(i);
             mx_strdel(&vars->str);
         }
+    }
     return isld;
 }
 
@@ -188,8 +199,8 @@ static void crt_isld_matrix_copy(t_graph *graph, t_main *vars){
                     }
                 j++;				
             } else {
-                graph->array[arr[0]][arr[1]] = mx_atoi(vars->str);
-                graph->array[arr[1]][arr[0]] = mx_atoi(vars->str);
+                graph->weight[arr[0]][arr[1]] = mx_atoi(vars->str);
+                graph->weight[arr[1]][arr[0]] = mx_atoi(vars->str);
                 free(vars->str);
                 vars->str = mx_strnew(0);
                 j = 0;				
@@ -198,7 +209,7 @@ static void crt_isld_matrix_copy(t_graph *graph, t_main *vars){
     // if (vars->str) free(vars->str);
 }
 
-static void free_fn(t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
+static void free_fn(t_main *vars, t_graph *graph, t_dijkstra *djk_var) {
     
     free(djk_var);
 
@@ -209,8 +220,8 @@ static void free_fn(t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
     if (graph->file_str) mx_strdel(&graph->file_str);
 
     for (int i = 0; i < vars->nmb_isld; ++i)
-        free(graph->array[i]);
-    free(graph->array);
+        free(graph->weight[i]);
+    free(graph->weight);
     
     free(graph);
 
@@ -223,55 +234,58 @@ static void free_fn(t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
     
 }
 
-static int get_min_distance(t_way_dijkstra *djk_var , t_main *vars) {
+// ------------------------------------------------------------------------------------
+static int get_min_distance(int *dist, bool *is_chek, t_main *vars) {
     int min_val = INT_MAX;
     int min_ind = 0;
 
     for (int i = 0; i < vars->nmb_isld; i++) {
-        if (djk_var[i].is_chk == false && djk_var[i].isld_nm <= min_val) {
-            min_val = djk_var[i].isld_nm;
+        if (is_chek[i] == false && dist[i] <= min_val) {
+            min_val = dist[i];
             min_ind = i;
         }		
     }
     return min_ind;
 }
 
-void mx_printDistance(t_way_dijkstra *djk_var, int j) {
-    if (djk_var[j].parent == -1 )
+void mx_printDistance(t_dijkstra *djk_var, int j, int src) {
+    
+    if (djk_var->parent[j] == -1 )
         return;
-
-    mx_printDistance(djk_var, djk_var[j].parent);   
-    if (djk_var[j].parent != 0 ) 
+        
+    mx_printDistance(djk_var, djk_var->parent[j], src);   
+    if (djk_var->parent[j] != src ) 
     mx_printstr("+ ");
-    mx_printint(djk_var[j].isld_nm - djk_var[djk_var[j].parent].isld_nm); 
+    mx_printint(djk_var->isld_nm[j] - djk_var->isld_nm[djk_var->parent[j]]); 
     mx_printstr(" ");
     
     // for (;i > 0 && djk_var->parent[i] != -1; i--)
         // printf("%d ", j);
 }
 
-void mx_printRoute(t_way_dijkstra *djk_var, int j, char **isld) {
-    if (djk_var[j].parent == -1)
+void mx_printRoute(t_dijkstra *djk_var, int j, char **isld) {
+    if (djk_var->parent[j] == -1)
         return;
 
-    mx_printRoute(djk_var, djk_var[j].parent, isld); 
+    mx_printRoute(djk_var, djk_var->parent[j], isld); 
     mx_printstr(" -> ");
     mx_printstr(isld[j]); 
 }
 
-static void printSolution(t_way_dijkstra *djk_var, int n, char **isld, int src) {
-    
-    for (int i = 0; i < n; i++)
-        printf("%d ", djk_var[i].isld_nm);
-    printf("\n");
+static void printSolution(t_dijkstra *djk_var, int n, char **isld, int src) {
+
+    // for (int i = 0; i < n; i++)
+    //     printf("%d ", djk_var->isld_nm[i]);
+    // printf("\n");
 
     printf("\nparent\n");
     for (int i = 0; i < n; i++)
-        printf("%d ", djk_var[i].parent);
+        printf("%d ", djk_var->parent[i]);
     printf("\n");
 
     for (int i = src; i < n; i++) {
-        if (djk_var[i].isld_nm != 0) {
+        if (djk_var->isld_nm[i] != 0) {
+            mx_printstr("========================================\n");
             // Path
             mx_printstr("Path: ");
             mx_printstr(isld[src]);
@@ -285,88 +299,165 @@ static void printSolution(t_way_dijkstra *djk_var, int n, char **isld, int src) 
             mx_printstr("\n");
 
             // Distance
-            if (djk_var[i].parent >= 1) {
+            if (djk_var->parent[i] >= src + 1) {
             mx_printstr("Distance: ");
-            mx_printDistance(djk_var, i);
+            mx_printDistance(djk_var, i, src);
             mx_printstr("= ");
-            mx_printint(djk_var[i].isld_nm);
+            mx_printint(djk_var->isld_nm[i]);
             mx_printstr("\n");
             }
             else {
                 mx_printstr("Distance: ");
-                mx_printint(djk_var[i].isld_nm);
+                mx_printint(djk_var->isld_nm[i]);
                 mx_printstr("\n");
             }
+            mx_printstr("========================================\n");
         }
     }
 
-    // free djk_struct_parameters	
+    // free djk_struct_parameters
+    free(djk_var->isld_nm);
+    free(djk_var->is_chk);
+    free(djk_var->parent);
+    
 }
 
 
 // calculate the path's
-static void dijkstra(int src, t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
-    int min_ind = 0;
-    // int sum = 0;
-    
+static void dijkstra(int src, t_main *vars, t_graph *graph, t_dijkstra *djk_var) {
+    int min_ind = 0;    
+    int numb_of_parents = 1;
 
-    // djk_var->isld_nm = (int*)malloc(vars->nmb_isld * sizeof(int));
-    // djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
-    // djk_var->parent = (int*)malloc(vars->nmb_isld * sizeof(int));
-    
-    // djk_var->dist = NULL;
+    djk_var->isld_nm = (int*)malloc(vars->nmb_isld * sizeof(int));
+    djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
+    djk_var->parent = (int*)malloc((vars->nmb_isld * vars->nmb_isld) * sizeof(int));
 
-    // for (int i = 0; i < vars->nmb_isld; i++)
-    //     djk_var->dist[i] = (int*)malloc(vars->nmb_isld * sizeof(int));
-    // for (int i = 0; vars->nmb_isld; i++)
-    //     for (int j = 0; j < vars->nmb_isld; j++) 
-    //         djk_var->dist[i][j] = 0;
-
-    // djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
-
+    for (int i = 0; i < (vars->nmb_isld * vars->nmb_isld); i++) 
+        djk_var->parent[i] = -1;
 
     for (int i = 0; i < vars->nmb_isld; i++) {
-        djk_var[i].parent = -1;
-        djk_var[i].isld_nm = INT_MAX;
-        djk_var[i].is_chk = false;
+        djk_var->isld_nm[i] = INT_MAX;
+        djk_var->is_chk[i] = false;
+    }	
+
+    djk_var->isld_nm[src] = 0;
+    for (int i = 0; i < vars->nmb_isld; i++) {
+        min_ind = get_min_distance(djk_var->isld_nm, djk_var->is_chk, vars);
+        djk_var->is_chk[min_ind] = true;
+        for (int j = src; j <= vars->nmb_isld; j++) {
+            if (djk_var->isld_nm[min_ind] + graph->weight[min_ind][j] == djk_var->isld_nm[j])
+                djk_var->is_chk[min_ind] = false;
+
+            if (!djk_var->is_chk[j] && graph->weight[min_ind][j] 
+            && djk_var->isld_nm[min_ind] != INT_MAX 
+            && djk_var->isld_nm[min_ind] + graph->weight[min_ind][j] <= djk_var->isld_nm[j]) {				
+                djk_var->parent[numb_of_parents] = min_ind;
+                djk_var->isld_nm[j] = djk_var->isld_nm[min_ind] + graph->weight[min_ind][j];
+                numb_of_parents++;				
+            } 
+            
+        } 
     }
-    djk_var[src].isld_nm = 0;
+    printf("parents %d\n", numb_of_parents);
+    printf("\nparent before realoc\n");
+    for (int i = 0; i < numb_of_parents; i++)
+        printf("%d ", djk_var->parent[i]);
+    printf("\n");
+    // djk_var->parent = mx_realloc(djk_var->parent, numb_of_parents);
+    printSolution(djk_var, numb_of_parents, graph->isld, src);
+}
+
+// ------------------------------------------------------------------------------------
+
+t_warshall **mx_set_start_vars(t_main *vars, t_graph *graph) {
+    vars->add_arow = " -> ";
+    vars->add_plus = " + ";
+    t_warshall **warshall = (t_warshall**)
+    malloc(vars->nmb_isld * sizeof(t_warshall*));
     for (int i = 0; i < vars->nmb_isld; i++) {
-        min_ind = get_min_distance(djk_var, vars);
-        djk_var[min_ind].is_chk = true;
-        for (int j = src; j < vars->nmb_isld; j++) {
-            if (djk_var[min_ind].isld_nm + graph->array[min_ind][j + 1] == djk_var[j].isld_nm) {
-                printf("ravno %d parent %d\n", i, djk_var[j].parent);
-                printf("min_ind.isld_nm %d\n", djk_var[min_ind].isld_nm);
-                printf("array[min_ind][j] %d\n", graph->array[min_ind][j + 1]);
-                printf("isld_nm j %d\n", djk_var[j].isld_nm);
-            }
-            if (!djk_var[j].is_chk && graph->array[min_ind][j] 
-            && djk_var[min_ind].isld_nm != INT_MAX
-            && djk_var[min_ind].isld_nm + graph->array[min_ind][j] < djk_var[j].isld_nm) {  
-                djk_var[j].parent = min_ind;
-                djk_var[j].isld_nm = djk_var[min_ind].isld_nm + graph->array[min_ind][j];
-                
+        warshall[i] = (t_warshall*)malloc(vars->nmb_isld * sizeof(t_warshall));
+    }
+
+    // graph->cp_w_weight = (int**)malloc(vars->nmb_isld * sizeof(int*));
+    // for (int i = 0; i < vars->nmb_isld; i++) {
+    //     graph->cp_w_weight[i] = (int*)malloc(vars->nmb_isld * sizeof(int));
+    // }
+
+    // for (int i = 0; i < vars->nmb_isld; i++) {
+    //     for (int j = 0; j < vars->nmb_isld; j++) {
+    //         graph->cp_w_weight[i][j] = graph->weight[i][j];
+    //     }
+    // }
+    // // TODO free cp_w_weight
+    return warshall;
+}
+
+static void mx_set_to_the_node(t_warshall **warshall, t_main *vars, t_graph *graph) {
+    int i = vars->rws;
+    int j = vars->clmn;
+    int k = vars->cnt_loop;
+
+    graph->weight[i][j] = graph->weight[i][k] + graph->weight[k][j];
+
+    warshall[i][j].w_path = govno(warshall[i][j].w_path, graph->isld[i]);
+    warshall[i][j].w_path = govno(warshall[i][j].w_path, vars->add_arow);
+    warshall[i][j].w_path = govno(warshall[i][j].w_path, graph->isld[j]);
+
+    warshall[i][j].w_dist = govno(warshall[i][j].w_dist, );
+}
+
+static void mx_fnd_path(t_warshall **warshall, t_main *vars, t_graph *graph) {
+    int i = vars->rws;
+    int j = vars->clmn;
+    int k = vars->cnt_loop;
+    if (graph->weight[i][j] > graph->weight[i][k] + graph->weight[k][j]) {        
+        mx_set_to_the_node(warshall, vars, graph);
+    }
+    else if (graph->weight[i][j] == graph->weight[i][k] + graph->weight[k][j]) {
+
+    }
+
+
+}
+
+// warshall 
+static void floydWarlshall(t_main *vars, t_graph *graph) {
+    t_warshall **warshall = mx_set_start_vars(vars, graph);    
+
+    for (vars->cnt_loop = 0; vars->cnt_loop < vars->nmb_isld; vars->cnt_loop++) {
+        for (vars->rws = 0; vars->rws < vars->nmb_isld; vars->rws++) {
+            for (vars->clmn = 0; vars->clmn < vars->nmb_isld; vars->clmn++) {
+                if (vars->rws != vars->clmn) {
+                    mx_fnd_path(warshall, vars, graph);
+                }
             }
         }
-        
     }
-    
-    printSolution(djk_var, vars->nmb_isld, graph->isld, src);
 }
+
+//     A    B    C    D    E
+// A   0   11   10    0    0
+// B  11    0    0    5    0
+// C  10    0    0    6   15
+// D   0    5    6    0    4
+// E   0    0   15    4    0
+
+// -1 -1 -1 -1 -1
+//  0 -1 -1 -1 -1
+//  0 -1 -1 -1 -1
+//  1  2 -1 -1 -1
+//  3  2  1 -1 -1
 
 int main(int argc, char const *argv[]) {
     t_main *vars = create_vars(0, 0);
-    
+    t_dijkstra *djk_var = (t_dijkstra*)malloc(sizeof(t_dijkstra));
     t_graph *graph;
+    
     mx_check_valid_file(argc, argv[1], vars);	
 
     graph = create_graph(vars);
     
     graph->isld = crt_isld_matrix(vars, graph);
-
-    // printf("nmb isld %d\n", vars->nmb_isld);
-    // printf("name %s\n", graph->file_str);
 
     crt_isld_matrix_copy(graph, vars);
 
@@ -377,17 +468,18 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < vars->nmb_isld; i++) {
         printf("%c", graph->isld[i][0]);
         for (int j = 0; j < vars->nmb_isld; j++) {
-            printf("%4d ", graph->array[i][j]);
+            printf("%4d ", graph->weight[i][j]);
         }
         printf("\n");
     }
-t_way_dijkstra *djk_var = (t_way_dijkstra*)malloc(
-        vars->nmb_isld * sizeof(t_way_dijkstra));
-    for (int i = 0; i < 1; i++) {
-        if (i != vars->nmb_isld - 1) mx_printstr("========================================\n");
-        dijkstra(i, vars, graph, djk_var);
-        if (i != vars->nmb_isld - 1) mx_printstr("========================================\n");
-    }
+    
+    // for (int i = 0; i < 1; i++) {
+        
+    // 	dijkstra(i, vars, graph, djk_var);
+    // }
+
+
+
     free_fn(vars, graph, djk_var);
     // system("leaks -q a.out");
     return 0;
