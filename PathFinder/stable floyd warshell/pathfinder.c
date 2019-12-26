@@ -139,7 +139,7 @@ static char *strjoin_mod(char *s1, char s2) {
 }
 
 // copy and delete src string
-static char *govno(char *str, char *arr){	
+static char *mx_strjoin_mod2(char *str, char *arr){	
     char *temp = mx_strjoin(str, arr);
     if (str) mx_strdel(&str);
     return temp;
@@ -151,7 +151,7 @@ static char **crt_isld_matrix(t_main *vars, t_graph *graph){
     for (int k = 0, i = 0, rslt_rdln = 1; rslt_rdln > 0 ; i++) 
         for (int j = 0, flag = 1; j < 3; j++) {
             if ((rslt_rdln = mx_read_line(&vars->str, 1, vars->delims[j], vars->fd)) < 1) break;
-            graph->file_str = govno(graph->file_str, vars->str);
+            graph->file_str = mx_strjoin_mod2(graph->file_str, vars->str);
             graph->file_str = strjoin_mod(graph->file_str, vars->delims[j]);
 
             if ((mx_check_isvalid_alpha(vars->str, j)) == 1) {
