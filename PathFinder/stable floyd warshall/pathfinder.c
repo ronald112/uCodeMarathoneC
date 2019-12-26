@@ -251,7 +251,7 @@ static void mx_printPath(t_warshell **wrsh_mtrx, int i, int j, t_graph *graph) {
 
 static void mx_print_shortests_path(t_warshell **wrsh_mtrx, t_main *vars, t_graph *graph) {
     int iter = 0;
-    printf("path");
+    printf("path\n");
      for (int i = 0; i < vars->nmb_isld; i++) {
 		for (int j = 0; j < vars->nmb_isld; j++) {
             printf("\t%d", wrsh_mtrx[i][j].path);
@@ -326,21 +326,38 @@ static void Warshell(t_graph *graph, t_main *vars) {
             }
             else if (wrsh_mtrx[i][j].cost != INT_MAX)
                 wrsh_mtrx[i][j].path = i;
+        }        
+    
+    printf("path before\n");
+    for (int i = 0; i < vars->nmb_isld; i++) {
+        for (int j = 0; j < vars->nmb_isld; j++) {
+            printf("\t%d", wrsh_mtrx[i][j].path);
         }
+    printf("\n");
+    }
+    printf("cost before\n");
+    for (int i = 0; i < vars->nmb_isld; i++) {
+		for (int j = 0; j < vars->nmb_isld; j++) {
+            if (wrsh_mtrx[i][j].cost == INT_MAX)
+                printf("\tinf");
+            else
+                printf("\t%d", wrsh_mtrx[i][j].cost);
+        }
+        printf("\n");
+    }
 
     // run Floyd-Warshell    
     for (int k = 0; k < vars->nmb_isld; k++) {
         for (int i = 0; i < vars->nmb_isld; i++) {
             for (int j = 0 ; j < vars->nmb_isld; j++) {
                 if (wrsh_mtrx[i][k].cost != INT_MAX && wrsh_mtrx[k][j].cost != INT_MAX
-                && wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost == wrsh_mtrx[i][j].cost) {
-                    printf("debug cost %d \n", wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost);
-                    printf("debug path %d \n", wrsh_mtrx[k][j].path);
-                }
-                else if (wrsh_mtrx[i][k].cost != INT_MAX && wrsh_mtrx[k][j].cost != INT_MAX
-                && wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost < wrsh_mtrx[i][j].cost) {
+                && wrsh_mtrx[i][j].cost > wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost) {
                     wrsh_mtrx[i][j].cost = wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost;
                     wrsh_mtrx[i][j].path = wrsh_mtrx[k][j].path;
+                }
+                else if (wrsh_mtrx[i][k].cost != INT_MAX && wrsh_mtrx[k][j].cost != INT_MAX
+                && wrsh_mtrx[i][j].cost == wrsh_mtrx[i][k].cost + wrsh_mtrx[k][j].cost) {
+                    printf("test %d\n", wrsh_mtrx[i][j].cost);
                 }
                 
             }
