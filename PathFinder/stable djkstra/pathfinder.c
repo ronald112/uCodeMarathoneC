@@ -14,18 +14,15 @@ typedef struct s_main {
     char *delims;
 }t_main;
 
-// typedef struct s_dijkstra {
-// 	int *isld_nm;
-// 	bool *is_chk;
-// 	int *parent;
-// }t_dijkstra;
-
-typedef struct s_way_dijkstra {
-    int isld_nm;
-    bool is_chk;
-    int parent;
-    struct s_way *next;
-}t_way_dijkstra;
+typedef struct s_dijkstra {
+    int nmb_isld;
+	int *isld_nm;
+	bool *is_chk;
+    bool **is_chk_alt;
+	int **parent;
+    char *route;  
+    char *dist;  
+}t_dijkstra;
 
 t_main *create_vars(int fd, int nmb_isld) {
     t_main* util_vars = (t_main*)malloc(sizeof(t_main));
@@ -140,7 +137,7 @@ static char *strjoin_mod(char *s1, char s2) {
 }
 
 // copy and delete src string
-static char *govno(char *str, char *arr){	
+static char *mx_addstr(char *str, char *arr){	
     char *temp = mx_strjoin(str, arr);
     if (str) mx_strdel(&str);
     return temp;
@@ -152,7 +149,7 @@ static char **crt_isld_matrix(t_main *vars, t_graph *graph){
     for (int k = 0, i = 0, rslt_rdln = 1; rslt_rdln > 0 ; i++) 
         for (int j = 0, flag = 1; j < 3; j++) {
             if ((rslt_rdln = mx_read_line(&vars->str, 1, vars->delims[j], vars->fd)) < 1) break;
-            graph->file_str = govno(graph->file_str, vars->str);
+            graph->file_str = mx_addstr(graph->file_str, vars->str);
             graph->file_str = strjoin_mod(graph->file_str, vars->delims[j]);
 
             if ((mx_check_isvalid_alpha(vars->str, j)) == 1) {
@@ -198,7 +195,7 @@ static void crt_isld_matrix_copy(t_graph *graph, t_main *vars){
     // if (vars->str) free(vars->str);
 }
 
-static void free_fn(t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
+static void free_fn(t_main *vars, t_graph *graph, t_dijkstra *djk_var) {
     
     free(djk_var);
 
@@ -223,141 +220,288 @@ static void free_fn(t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
     
 }
 
-static int get_min_distance(t_way_dijkstra *djk_var , t_main *vars) {
+static int get_min_distance(int *dist, bool *is_chek, t_main *vars) {
     int min_val = INT_MAX;
     int min_ind = 0;
 
     for (int i = 0; i < vars->nmb_isld; i++) {
-        if (djk_var[i].is_chk == false && djk_var[i].isld_nm <= min_val) {
-            min_val = djk_var[i].isld_nm;
+        if (is_chek[i] == false && dist[i] < min_val) {
+            min_val = dist[i];
             min_ind = i;
         }		
     }
     return min_ind;
 }
 
-void mx_printDistance(t_way_dijkstra *djk_var, int j) {
-    if (djk_var[j].parent == -1 )
-        return;
-
-    mx_printDistance(djk_var, djk_var[j].parent);   
-    if (djk_var[j].parent != 0 ) 
-    mx_printstr("+ ");
-    mx_printint(djk_var[j].isld_nm - djk_var[djk_var[j].parent].isld_nm); 
-    mx_printstr(" ");
-    
-    // for (;i > 0 && djk_var->parent[i] != -1; i--)
-        // printf("%d ", j);
+// add to the beginning o the string
+char *mx_add_to_begin(char *s1, char *s2) {
+    char *result = NULL;
+    if (!s1 && !s2) return result;
+    else if (!s2)  return mx_strdup(s2);      
+    else if (!s1) return mx_strdup(s1);
+    else {
+        result = mx_strnew(mx_strlen(s1) + mx_strlen(s2));
+        int i = 0;
+        for (int j = 0; s2[j] != '\0'; i++, j++) 
+            result[i] = s2[j];
+        for (int j = 0; s1[j] != '\0'; i++, j++) 
+            result[i] = s1[j];
+        
+        result[i] = '\0';
+        // printf(":%s:\n", s1);
+    }
+    if (s1) mx_strdel(&s1);
+    return result;
 }
 
-void mx_printRoute(t_way_dijkstra *djk_var, int j, char **isld) {
-    if (djk_var[j].parent == -1)
-        return;
+// 0 4 11 1 6 13 22
 
-    mx_printRoute(djk_var, djk_var[j].parent, isld); 
+//     H    B    W    T    M    G    P
+// H   0    4    0    1    6    0    0
+// B   4    0    7    0    0    0   18
+// W   0    7    0   10    8    2    0
+// T   1    0   10    0    0   12    0
+// M   6    0    8    0    0    0   16
+// G   0    0    2   12    0    0    0
+// P   0   18    0    0   16    0    0
+
+//    H  B  W  T  M  G  P
+// H -1  0  3  0  0  3  1
+// B -1 -1  1 -1 -1  2  4
+// W -1 -1 -1 -1 -1 -1 -1
+// T -1 -1 -1 -1 -1 -1 -1
+// M -1 -1 -1 -1 -1 -1 -1
+// G -1 -1 -1 -1 -1 -1 -1
+// P -1 -1 -1 -1 -1 -1 -1
+
+//    H  B  W  T  M  G  P
+// H  0  0  0  0  0  0  0
+// B  0  0  1  0  0  1  0
+// W  0  0  0  0  0  0  0
+// T  0  0  0  0  0  0  0
+// M  0  0  0  0  0  0  0
+// G  0  0  0  0  0  0  0
+// P  0  0  0  0  0  0  0
+
+char *mx_get_nb_way(t_dijkstra *djk_var, int j, int i) {
+
+    return mx_itoa(djk_var->isld_nm[j] - djk_var->isld_nm[djk_var->parent[i][j]]);
+}
+
+void mx_add_to_str(t_dijkstra *djk_var, int j, int i, char **isld) {
+    djk_var->route = mx_add_to_begin(
+        mx_add_to_begin(djk_var->route, " -> "), isld[j]);
+
+    char *temp = mx_get_nb_way(djk_var, j, i);
+
+    djk_var->dist = mx_add_to_begin(
+        mx_add_to_begin(djk_var->dist, " + "), temp);
+        mx_strdel(&temp);
+}
+
+void mx_print_dist(int counter, t_dijkstra *djk_var, int y) {
+    // // Distance
+    if (counter != 1) {
+        mx_printstr("\nDistance: ");
+        mx_printstr(djk_var->dist);
+        mx_printstr(" = ");
+        mx_printint(djk_var->isld_nm[y]);
+        mx_printstr("\n");
+    }
+    else {
+    	mx_printstr("\nDistance: ");
+    	mx_printint(djk_var->isld_nm[y]);
+    	mx_printstr("\n");
+    } 
+    if (djk_var->dist) mx_strdel(&djk_var->dist);
+}
+
+int mx_printRoute(t_dijkstra *djk_var, int y, char **isld, int src) {
+    int i = djk_var->nmb_isld - 1;
+    int k = 0;
+    int counter = 0;
+    int check = 0;
+    djk_var->dist = NULL;
+    djk_var->route = NULL;
+    
+    
+    mx_printstr("\nRoute: ");
+    mx_printstr(isld[src]);
     mx_printstr(" -> ");
-    mx_printstr(isld[j]); 
-}
-
-static void printSolution(t_way_dijkstra *djk_var, int n, char **isld, int src) {
-    
-    for (int i = 0; i < n; i++)
-        printf("%d ", djk_var[i].isld_nm);
-    printf("\n");
-
-    printf("\nparent\n");
-    for (int i = 0; i < n; i++)
-        printf("%d ", djk_var[i].parent);
-    printf("\n");
-
-    for (int i = src; i < n; i++) {
-        if (djk_var[i].isld_nm != 0) {
-            // Path
-            mx_printstr("Path: ");
-            mx_printstr(isld[src]);
-            mx_printstr(" -> ");
-            mx_printstr(isld[i]);
-
-            // Route
-            mx_printstr("\nRoute: ");
-            mx_printstr(isld[src]);
-            mx_printRoute(djk_var, i, isld);
-            mx_printstr("\n");
-
-            // Distance
-            if (djk_var[i].parent >= 1) {
-            mx_printstr("Distance: ");
-            mx_printDistance(djk_var, i);
-            mx_printstr("= ");
-            mx_printint(djk_var[i].isld_nm);
-            mx_printstr("\n");
+    for (int j = y; djk_var->parent[0][j] != -1; counter++) {
+        i = djk_var->nmb_isld - 1;
+        for (; i >= 0; i--) {           
+            if (djk_var->parent[i][j] != -1  
+                && djk_var->is_chk_alt[i][j] != true) {
+                mx_add_to_str(djk_var, j, i, isld);
+                if (i != 0) {
+                    check = i;
+                    djk_var->is_chk_alt[i][j] = true;
+                    k++;
+                }
+                j = djk_var->parent[i][j];      
+                
+                i = 0;
+                
+                
+                break;
             }
-            else {
-                mx_printstr("Distance: ");
-                mx_printint(djk_var[i].isld_nm);
-                mx_printstr("\n");
-            }
+            
+            // printf("k = %d\n", k);
         }
     }
+    // printf("i = %d\n", i);
+    // printf("k1 = %d\n", k);
+    // printf("check = %d\n", check);
+    // printf("counter = %d\n", counter);
+    if (check != 0 && k > 1) djk_var->is_chk_alt[check][y] = false;
+    mx_printstr(djk_var->route);
+    if (djk_var->route) mx_strdel(&djk_var->route);
 
-    // free djk_struct_parameters	
+    mx_print_dist(counter, djk_var, y);
+    
+    // mx_printstr("\n");
+    
+    // printf("is_chk_alt\n");
+    // for (int i = 0; i < djk_var->nmb_isld; i++) {
+    //     for (int j = 0; j < djk_var->nmb_isld; j++) {
+    //         printf("%2d ", djk_var->is_chk_alt[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+    
+    return k;
 }
 
+static void printSolution(t_dijkstra *djk_var, int n, char **isld, int src) {
+    int k = 1;
+    // printf("ways(sum)\n");
+    // for (int i = 0; i < n; i++)
+    //     printf("%d ", djk_var->isld_nm[i]);
+    // printf("\n");
+
+	// printf("parent\n");
+	// for (int i = 0; i < n; i++) {
+	// 	for (int j = 0; j < n; j++) {
+    //     	printf("%2d ", djk_var->parent[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+
+	for (int i = src; i < n; i++) {
+        if (djk_var->isld_nm[i] != 0) {
+			
+
+            for (; k > 0;) {
+                mx_printstr("========================================\n");
+                // Path
+                mx_printstr("Path: ");
+                mx_printstr(isld[src]);
+                mx_printstr(" -> ");
+                mx_printstr(isld[i]);
+
+                // Route			
+                k = mx_printRoute(djk_var, i, isld, src);
+                // printf("k = %d\n", k);
+
+                // // Distance
+                // if (djk_var->parent[0][i] >= src + 1) {
+                // mx_printstr("Distance: ");
+                // mx_printDistance(djk_var, i, src);
+                // mx_printstr("= ");
+                // mx_printint(djk_var->isld_nm[i]);
+                // mx_printstr("\n");
+                // }
+                // else {
+                // 	mx_printstr("Distance: ");
+                // 	mx_printint(djk_var->isld_nm[i]);
+                // 	mx_printstr("\n");
+                // }                
+			    mx_printstr("========================================\n");
+            }
+            k = 1;
+            
+		
+            for (int i = 0; i < djk_var->nmb_isld; i++)
+                for (int j = 0; j < djk_var->nmb_isld; j++)
+                    djk_var->is_chk_alt[i][j] = 0;
+		}
+    }
+
+	// free djk_struct_parameters
+    free(djk_var->isld_nm);
+    free(djk_var->is_chk);
+	for (int i = 0; i < n; i++)
+		free(djk_var->is_chk_alt[i]);
+    free(djk_var->is_chk_alt);
+    for (int i = 0; i < n; i++)
+		free(djk_var->parent[i]);
+	free(djk_var->parent);
+	
+}
+
+int mx_set_start_vars(t_main *vars, t_dijkstra *djk_var, int src) {
+    djk_var->nmb_isld = vars->nmb_isld;
+    djk_var->isld_nm = (int*)malloc(vars->nmb_isld * sizeof(int));
+	djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
+	djk_var->parent = (int**)malloc(vars->nmb_isld * sizeof(int*));	
+    djk_var->is_chk_alt = (bool**)malloc(vars->nmb_isld * sizeof(bool*));
+
+	for (int i = 0; i < vars->nmb_isld; i++) {
+		djk_var->parent[i] = (int*)malloc(vars->nmb_isld * sizeof(int));
+		for (int j = 0; j < vars->nmb_isld; j++)
+			djk_var->parent[i][j] = -1;
+        djk_var->is_chk_alt[i] = (bool*)malloc(vars->nmb_isld * sizeof(bool));
+		for (int j = 0; j < vars->nmb_isld; j++)
+			djk_var->is_chk_alt[i][j] = 0;
+		djk_var->isld_nm[i] = INT_MAX;
+		djk_var->is_chk[i] = false;
+	}
+	djk_var->isld_nm[src] = 0;
+
+    return 0;
+}
+
+// add path to parents arr
+void mx_add_par_path(int j, t_dijkstra *djk_var, int min_ind) {
+    int i = 0;
+    for (; i < djk_var->nmb_isld && djk_var->parent[i][j] != -1; i++);
+    if (djk_var->parent[i][j] == -1) djk_var->parent[i][j] = min_ind;
+}
 
 // calculate the path's
-static void dijkstra(int src, t_main *vars, t_graph *graph, t_way_dijkstra *djk_var) {
-    int min_ind = 0;
-    // int sum = 0;
-    
+static void dijkstra(int src, t_main *vars, t_graph *graph, t_dijkstra *djk_var) {
+    int min_ind = mx_set_start_vars(vars, djk_var, src); 
 
-    // djk_var->isld_nm = (int*)malloc(vars->nmb_isld * sizeof(int));
-    // djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
-    // djk_var->parent = (int*)malloc(vars->nmb_isld * sizeof(int));
-    
-    // djk_var->dist = NULL;
-
-    // for (int i = 0; i < vars->nmb_isld; i++)
-    //     djk_var->dist[i] = (int*)malloc(vars->nmb_isld * sizeof(int));
-    // for (int i = 0; vars->nmb_isld; i++)
-    //     for (int j = 0; j < vars->nmb_isld; j++) 
-    //         djk_var->dist[i][j] = 0;
-
-    // djk_var->is_chk = (bool*)malloc(vars->nmb_isld * sizeof(bool));
-
-
-    for (int i = 0; i < vars->nmb_isld; i++) {
-        djk_var[i].parent = -1;
-        djk_var[i].isld_nm = INT_MAX;
-        djk_var[i].is_chk = false;
-    }
-    djk_var[src].isld_nm = 0;
-    for (int i = 0; i < vars->nmb_isld; i++) {
-        min_ind = get_min_distance(djk_var, vars);
-        djk_var[min_ind].is_chk = true;
-        for (int j = src; j < vars->nmb_isld; j++) {
-            if (djk_var[min_ind].isld_nm + graph->array[min_ind][j + 1] == djk_var[j].isld_nm) {
-                printf("ravno %d parent %d\n", i, djk_var[j].parent);
-                printf("min_ind.isld_nm %d\n", djk_var[min_ind].isld_nm);
-                printf("array[min_ind][j] %d\n", graph->array[min_ind][j + 1]);
-                printf("isld_nm j %d\n", djk_var[j].isld_nm);
-            }
-            if (!djk_var[j].is_chk && graph->array[min_ind][j] 
-            && djk_var[min_ind].isld_nm != INT_MAX
-            && djk_var[min_ind].isld_nm + graph->array[min_ind][j] < djk_var[j].isld_nm) {  
-                djk_var[j].parent = min_ind;
-                djk_var[j].isld_nm = djk_var[min_ind].isld_nm + graph->array[min_ind][j];
-                
-            }
-        }
-        
-    }
-    
+   for (int i = 0; i < vars->nmb_isld - 1; i++) {
+		min_ind = get_min_distance(djk_var->isld_nm, djk_var->is_chk, vars);
+		djk_var->is_chk[min_ind] = true;
+		for (int j = src; j < vars->nmb_isld; j++) {
+			if (graph->array[min_ind][j] && djk_var->isld_nm[min_ind] != INT_MAX
+			&& djk_var->isld_nm[min_ind] + graph->array[min_ind][j] < djk_var->isld_nm[j]) {
+				djk_var->parent[0][j] = min_ind;
+                djk_var->isld_nm[j] = djk_var->isld_nm[min_ind] + graph->array[min_ind][j];
+            } else if (graph->array[min_ind][j] && djk_var->isld_nm[min_ind] != INT_MAX
+			&& djk_var->isld_nm[min_ind] + graph->array[min_ind][j] == djk_var->isld_nm[j]) {
+                mx_add_par_path(j, djk_var, min_ind);
+            }			
+		} 
+	}
     printSolution(djk_var, vars->nmb_isld, graph->isld, src);
 }
 
+// parents 3
+// 2147483647 2147483647 0 6 10 
+// iter
+// -1 -1 -1 -1 -1 
+// -1 -1 -1 -1 -1 
+// -1 -1 -1 -1 -1 
+//  2 -1 -1 -1 -1 
+//  3 -1 -1 -1 -1 
+
 int main(int argc, char const *argv[]) {
     t_main *vars = create_vars(0, 0);
-    
+    t_dijkstra *djk_var = (t_dijkstra*)malloc(sizeof(t_dijkstra));
     t_graph *graph;
     mx_check_valid_file(argc, argv[1], vars);	
 
@@ -381,12 +525,9 @@ int main(int argc, char const *argv[]) {
         }
         printf("\n");
     }
-t_way_dijkstra *djk_var = (t_way_dijkstra*)malloc(
-        vars->nmb_isld * sizeof(t_way_dijkstra));
-    for (int i = 0; i < 1; i++) {
-        if (i != vars->nmb_isld - 1) mx_printstr("========================================\n");
+
+    for (int i = 0; i < vars->nmb_isld - 1; i++) {
         dijkstra(i, vars, graph, djk_var);
-        if (i != vars->nmb_isld - 1) mx_printstr("========================================\n");
     }
     free_fn(vars, graph, djk_var);
     // system("leaks -q a.out");
@@ -401,10 +542,147 @@ t_way_dijkstra *djk_var = (t_way_dijkstra*)malloc(
 // C-E,15
 // D-E,4
 
+// 7
+// Home-BusStop,4
+// BusStop-Work,7
+// Home-Taxi,1
+// Metro-Home,6
+// Taxi-Work,10
+// Work-Gym,2
+// Metro-Work,8
+// Taxi-Gym,12
+// BusStop-Park,18
+// Park-Metro,16
+
 // 4
 // Greenland-Bananal,8
 // Fraser-Greenland,10
 // Bananal-Fraser,3
 // Java-Fraser,5
 
+// ========================================
+// Path: Home -> BusStop
+// Route: Home -> BusStop
+// Distance: 4
+// ========================================
+// ========================================
+// Path: Home -> Work
+// Route: Home -> BusStop -> Work
+// Distance: 4 + 7 = 11
+// ========================================
+// ========================================
+// Path: Home -> Work
+// Route: Home -> Taxi -> Work
+// Distance: 1 + 10 = 11
+// ========================================
+// ========================================
+// Path: Home -> Taxi
+// Route: Home -> Taxi
+// Distance: 1
+// ========================================
+// ========================================
+// Path: Home -> Metro
+// Route: Home -> Metro
+// Distance: 6
+// ========================================
+// ========================================
+// Path: Home -> Gym
+// Route: Home -> BusStop -> Work -> Gym
+// Distance: 4 + 7 + 2 = 13
+// ========================================
+// ========================================
+// Path: Home -> Gym
+// Route: Home -> Taxi -> Work -> Gym
+// Distance: 1 + 10 + 2 = 13
+// ========================================
+// ========================================
+// Path: Home -> Gym
+// Route: Home -> Taxi -> Gym
+// Distance: 1 + 12 = 13
+// ========================================
+// ========================================
+// Path: Home -> Park
+// Route: Home -> Metro -> Park
+// Distance: 6 + 16 = 22
+// ========================================
+// ======================================== //1111111111111111111111111111111111
+// Path: Home -> Park
+// Route: Home -> BusStop -> Park
+// Distance: 4 + 18 = 22
+// ========================================
+// ========================================
+// Path: BusStop -> Work
+// Route: BusStop -> Work
+// Distance: 7
+// ========================================
+// ========================================
+// Path: BusStop -> Taxi
+// Route: BusStop -> Work -> Taxi
+// Distance: 7 + 10 = 17
+// ========================================
+// ========================================
+// Path: BusStop -> Metro
+// Route: BusStop -> Work -> Metro
+// Distance: 7 + 8 = 15
+// ========================================
+// ========================================
+// Path: BusStop -> Gym
+// Route: BusStop -> Work -> Gym
+// Distance: 7 + 2 = 9
+// ========================================
+// ========================================
+// Path: BusStop -> Park
+// Route: BusStop -> Park
+// Distance: 18
+// ========================================
+// ========================================
+// Path: Work -> Taxi
+// Route: Work -> Taxi
+// Distance: 10
+// ========================================
+// ========================================
+// Path: Work -> Metro
+// Route: Work -> Metro
+// Distance: 8
+// ========================================
+// ========================================
+// Path: Work -> Gym
+// Route: Work -> Gym
+// Distance: 2
+// ========================================
+// ========================================
+// Path: Work -> Park
+// Route: Work -> Metro -> Park
+// Distance: 8 + 16 = 24
+// ========================================
+// ========================================
+// Path: Taxi -> Metro
+// Route: Taxi ->
+// Distance:  = 2147483647
+// ========================================
+// ========================================
+// Path: Taxi -> Gym
+// Route: Taxi -> Gym
+// Distance: 12
+// ========================================
+// ========================================
+// Path: Taxi -> Park
+// Route: Taxi ->
+// Distance:  = 2147483647
+// ========================================
+// ========================================
+// Path: Metro -> Gym
+// Route: Metro ->
+// Distance:  = 2147483647
+// ========================================
+// ========================================
+// Path: Metro -> Park
+// Route: Metro -> Park
+// Distance: 16
+// ========================================
+// ========================================
+// Path: Gym -> Park
+// Route: Gym ->
+// Distance:  = 2147483647
+// ========================================
 
