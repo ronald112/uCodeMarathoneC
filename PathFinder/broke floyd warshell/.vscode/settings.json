@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "libmx.h": "c",
+        "malloc.h": "c"
+    }
+}
