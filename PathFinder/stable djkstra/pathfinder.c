@@ -240,7 +240,7 @@ static void crt_isld_matrix_copy(t_grph *graph, t_main *vars){
         }		
 }
 
-static void free_fn(t_main *vars, t_grph *graph, t_dijk *djk_var) {    
+static void mx_free_fn(t_main *vars, t_grph *graph, t_dijk *djk_var) {    
     free(djk_var);
     for (int i = 0; i < vars->nmb_isld; i++)
         free(graph->isld[i]);
@@ -258,7 +258,7 @@ static void free_fn(t_main *vars, t_grph *graph, t_dijk *djk_var) {
         free(vars);
 }
 
-static int get_min_distance(int *dist, bool *is_chek, t_main *vars) {
+static int mx_get_min_distance(int *dist, bool *is_chek, t_main *vars) {
     int min_val = INT_MAX;
     int min_ind = 0;
 
@@ -468,11 +468,11 @@ void mx_add_parent_and_weight(t_grph *graph, t_dijk *djk_var,
 }
 
 // calculate the path's
-static void dijkstra(int src, t_main *vars, t_grph *graph, t_dijk *djk_var) {
+static void mx_dijkstra(int src, t_main *vars, t_grph *graph, t_dijk *djk_var) {
     int min_ind = mx_set_start_vars(vars, djk_var, src); 
 
     for (int i = 0; i < vars->nmb_isld - 1; i++) {
-        min_ind = get_min_distance(djk_var->isld_nm, djk_var->is_chk, vars);
+        min_ind = mx_get_min_distance(djk_var->isld_nm, djk_var->is_chk, vars);
         djk_var->is_chk[min_ind] = true;
         for (int j = src; j < vars->nmb_isld; j++) {
             mx_add_parent_and_weight(graph, djk_var, min_ind, j);
@@ -510,9 +510,9 @@ int main(int argc, char const *argv[]) {
     // }
 
     for (int i = 0; i < vars->nmb_isld - 1; i++) {
-        dijkstra(i, vars, graph, djk_var);
+        mx_dijkstra(i, vars, graph, djk_var);
     }
-    free_fn(vars, graph, djk_var);
+    mx_free_fn(vars, graph, djk_var);
     // system("leaks -q a.out");
     return 0;
 }
