@@ -1,9 +1,8 @@
 #ifndef LIBMX_H
 #define LIBMX_H
 
-#define _GNU_SOURCE
+#define INT_MAX 2147483647
 
-#include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,7 +11,6 @@
 #include <stdbool.h>
 // #include <malloc/malloc.h>
 #include <malloc.h>
-
 
 // List pack
 typedef struct s_list {

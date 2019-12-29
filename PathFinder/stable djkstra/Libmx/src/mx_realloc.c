@@ -8,7 +8,7 @@ void *mx_realloc(void *ptr, size_t size) {
         return NULL;
     }
     void *rslt = malloc(size);
-    size_t size_ptr = malloc_usable_size(ptr); //malloc_size(ptr);   //  change to malloc_size()
+    size_t size_ptr = malloc_usable_size(ptr); // malloc_size(ptr); //  change to malloc_size()
     if (rslt) {
         mx_memcpy(rslt, ptr, (size_ptr > size ? size : size_ptr)); /*malloc_size*/
     }

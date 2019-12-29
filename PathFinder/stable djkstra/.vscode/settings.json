@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "libmx.h": "c"
+        "libmx.h": "c",
+        "malloc.h": "c",
+        "stdbool.h": "c",
+        "stdlib.h": "c"
     }
 }
