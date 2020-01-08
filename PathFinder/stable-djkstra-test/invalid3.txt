@@ -1,5 +1,0 @@
-3
-Greenland-Bananal,4
-Fraser-Greenland,4
-Bananal-Fraser,3
-Java-Fraser,5
