@@ -15,6 +15,8 @@ typedef struct s_main {
 }t_main;
 
 typedef struct s_dijk {
+    int *index_for_sort;
+    int cnt_before;
     int temp_i;
     int temp_j;
     int cnt_parents;
@@ -24,7 +26,8 @@ typedef struct s_dijk {
     bool **is_chk_alt;
     int **parent;
     char **path;
-    char **route;
+    char **route_char;
+    char **route_int;
     char **dist;
 }t_dijk;
 
@@ -303,12 +306,17 @@ char *mx_get_nb_way(t_dijk *djk_var, int j, int i) {
 // old
 void mx_add_to_str(t_dijk *djk_var, int j, int i, char **isld) {
     char *temp = mx_get_nb_way(djk_var, j, i);
+    char *temp_indx = mx_itoa(j);
 
-    djk_var->route[djk_var->cnt_parents] = mx_add_to_begin(
-    mx_add_to_begin(djk_var->route[djk_var->cnt_parents], " -> "), isld[j]);
+
+    djk_var->route_char[djk_var->cnt_parents] = mx_add_to_begin(
+    mx_add_to_begin(djk_var->route_char[djk_var->cnt_parents], " -> "), isld[j]);
+    djk_var->route_int[djk_var->cnt_parents] = mx_add_to_begin(
+    mx_add_to_begin(djk_var->route_int[djk_var->cnt_parents], " -> "), temp_indx);
     djk_var->dist[djk_var->cnt_parents] = mx_add_to_begin(
     mx_add_to_begin(djk_var->dist[djk_var->cnt_parents], " + "), temp);
     mx_strdel(&temp);
+    mx_strdel(&temp_indx);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -338,20 +346,24 @@ void mx_set_false_arr(t_dijk *djk_var, int k, int y) {
                     djk_var->is_chk_alt[i][j] = 0;
     }
 }
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void mx_check_first_line(t_dijk  *djk_var, int i, int *j, int *chk_frst_ln) {
-    
     if (i != 0 && djk_var->temp_i != 0 && djk_var->temp_j != 0) {
         djk_var->is_chk_alt[djk_var->temp_i][djk_var->temp_j] = false;
-        //k++;                        
     }
     if (i != 0) {
+        if (djk_var->cnt_before != 0
+        && djk_var->cnt_parents
+        == djk_var->index_for_sort[djk_var->cnt_before - 1])
+            djk_var->cnt_before--;
+        djk_var->cnt_before++;
+        djk_var->index_for_sort[djk_var->cnt_before - 1]
+        = djk_var->cnt_parents;
         djk_var->is_chk_alt[i][*j] = true;
         djk_var->temp_i = i;
-        djk_var->temp_j = *j;        
+        djk_var->temp_j = *j;
     }
+
     *j = djk_var->parent[i][*j];
     *chk_frst_ln += i;
 }
@@ -374,7 +386,7 @@ int mx_find_route(t_dijk *djk_var, int y, char **isld) {
                     k += i;
                 }
                 mx_check_first_line(djk_var, i, &j, &chk_frst_ln);
-                break; 
+                break;
             }
     }
     // if (y >= 12) {
@@ -391,8 +403,6 @@ int mx_find_route(t_dijk *djk_var, int y, char **isld) {
     // printf("\n");
     // }
 
-    
-
     mx_set_false_arr(djk_var, k, y);
     mx_write_dist(counter, djk_var, y);
     // printf("%3d %3d %3d %3d %3d\n", chk_frst_ln, counter, k, y, djk_var->cnt_parents);
@@ -400,19 +410,23 @@ int mx_find_route(t_dijk *djk_var, int y, char **isld) {
 }
 
 // path
-int mx_get_all_path(t_dijk *djk_var, int j, char **isld, int src) {
+int mx_get_all_path(t_dijk *djk_var, int i, char **isld, int src) {
     int k = 0;
     int count = djk_var->cnt_parents;
+    char *temp_indx = mx_itoa(src);
 
     djk_var->temp_i = 0;
     djk_var->temp_j = 0;
     djk_var->path[count] = mx_addstr(djk_var->path[count], isld[src]);
     djk_var->path[count] = mx_addstr(djk_var->path[count], " -> ");
-    djk_var->path[count] = mx_addstr(djk_var->path[count], isld[j]);
-    k = mx_find_route(djk_var, j, isld);
-    djk_var->route[djk_var->cnt_parents] = mx_add_to_begin(
-    mx_add_to_begin(djk_var->route[djk_var->cnt_parents], " -> "), isld[src]);    
+    djk_var->path[count] = mx_addstr(djk_var->path[count], isld[i]);
+    k = mx_find_route(djk_var, i, isld);
+    djk_var->route_int[djk_var->cnt_parents] = mx_add_to_begin(
+    mx_add_to_begin(djk_var->route_int[djk_var->cnt_parents], " -> "), temp_indx);
+    djk_var->route_char[djk_var->cnt_parents] = mx_add_to_begin(
+    mx_add_to_begin(djk_var->route_char[djk_var->cnt_parents], " -> "), isld[src]);
     djk_var->cnt_parents++;
+    mx_strdel(&temp_indx);
     return k;
 }
 
@@ -495,11 +509,13 @@ void mx_add_parent_and_weight(t_grph *graph, t_dijk *djk_var,
         mx_add_par_path(j, djk_var, min_ind);
     }
 }
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 // calculate the path's
 void mx_dijkstra(int src, t_main *vars, t_grph *graph, t_dijk *djk_var) {
     int min_ind = mx_set_start_vars(vars, djk_var, src);
-    int temp = 0;
+    // int temp = 0;
 
     for (int i = 0; i < vars->nmb_isld; i++) {
         min_ind = mx_get_min_distance(djk_var->isld_nm,
@@ -509,15 +525,16 @@ void mx_dijkstra(int src, t_main *vars, t_grph *graph, t_dijk *djk_var) {
             mx_add_parent_and_weight(graph, djk_var, min_ind, j);
     }
 
-    for (int k = 0; k < djk_var->nmb_isld; k++)
-        for (int i = 0; i < djk_var->nmb_isld - 1; i++)
-            for (int j = 0; j < djk_var->nmb_isld; j++)
-                if (djk_var->parent[i][j] != -1 && djk_var->parent[i + 1][j] != -1
-                    && djk_var->parent[i][j] < djk_var->parent[i + 1][j]) {
-                    temp = djk_var->parent[i][j];
-                    djk_var->parent[i][j] = djk_var->parent[i + 1][j];
-                    djk_var->parent[i + 1][j] = temp;
-                }
+
+    // for (int k = 0; k < djk_var->nmb_isld; k++)
+    //     for (int i = 0; i < djk_var->nmb_isld - 1; i++)
+    //         for (int j = 0; j < djk_var->nmb_isld; j++)
+    //             if (djk_var->parent[i][j] != -1 && djk_var->parent[i + 1][j] != -1
+    //                 && djk_var->parent[i][j] < djk_var->parent[i + 1][j]) {
+    //                 temp = djk_var->parent[i][j];
+    //                 djk_var->parent[i][j] = djk_var->parent[i + 1][j];
+    //                 djk_var->parent[i + 1][j] = temp;
+    //             }
 
     // for (int i = 0; i < djk_var->nmb_isld; i++) {
     //     for (int j = 0; j < djk_var->nmb_isld; j++) {
@@ -530,44 +547,194 @@ void mx_dijkstra(int src, t_main *vars, t_grph *graph, t_dijk *djk_var) {
     mx_print_solution(djk_var, vars->nmb_isld, graph->isld, src);
 }
 
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+static int mx_strcmp_djkstra(const char *s1, const char *s2) {
+	int i = 0;
+
+	for (; s1[i] == s2[i]; i++) {
+		if ( s1[i] == '\0') {
+			return 0;
+		}
+	}
+	return s1[i] - s2[i];
+}
+
+// char *pivot = arr[(left + (right - 1) / 2)];
+//     int pindex = left;
+//     for (int i = left; i < right - 1; i++) {
+//         if (mx_strlen(arr[i]) > mx_strlen(pivot)) {
+//             char *temp = arr[i];
+//             arr[i] = arr[pindex];
+//             arr[pindex] = temp;
+//             pindex++;
+//         }
+//     }
+//     char *temp = arr[right - 1];
+//     arr[right - 1] = arr[pindex];
+//     arr[pindex]= temp;
+//     return pindex;
+
+// int mx_partition_djkstra(t_dijk *djk_var, int left, int right) {
+//     char *pivot = djk_var->route_int[(left + (right - 1) / 2)];
+//     int pindex = right;
+//     char *temp;
+//     for (int i = left; i < right; i++) {
+//         if (mx_strcmp_djkstra(djk_var->route_int[i], pivot) > 0) {
+//             temp = djk_var->route_int[i];
+//             djk_var->route_int[i] = djk_var->route_int[pindex];
+//             djk_var->route_int[pindex] = temp;
+//             temp = djk_var->route_char[i];
+//             djk_var->route_char[i] = djk_var->route_char[pindex];
+//             djk_var->route_char[pindex] = temp;
+
+//             temp = djk_var->dist[i];
+//             djk_var->dist[i] = djk_var->dist[pindex];
+//             djk_var->dist[pindex] = temp;
+//             pindex++;
+//         }
+//     }
+//     return pindex;
+// }
+
+// int mx_quicksort_djkstra(t_dijk *djk_var, int left, int right) {
+//     if (djk_var->route_char == NULL)
+//         return -1;
+//     if (djk_var->route_int == NULL)
+//         return -1;
+//     int counter = 0;
+//     if (left < right) {
+//         counter++;
+//         int pIndex = mx_partition_djkstra(djk_var, left, right);
+//         counter += mx_quicksort_djkstra(djk_var, left, pIndex - 1);
+//         counter += mx_quicksort_djkstra(djk_var, pIndex + 1, right);
+//     }
+//     return counter;
+// }
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// // new quick sort
+// static void mx_swap_elements(char **left, char **right) {
+//     char *temp = *left;
+//     *left = *right;
+//     *right = temp;
+// }
+
+// int mx_quicksort_djkstra(t_dijk *djk_var, int left, int right) {
+//     if (!djk_var->route_int) return -1;
+//     if (left >= right) return 0;
+//     int swaps = 0;
+//     int pi = left;
+//     char *pivot = djk_var->route_int[left + (right - left) / 2];
+    
+//     for (int r = right; pi <= r;) {
+//         for (; mx_strcmp_djkstra(djk_var->route_int[pi], pivot) < 0; pi++);
+//         for (; mx_strcmp_djkstra(djk_var->route_int[pi], pivot) > 0 ; r--);
+        
+//         if (mx_strcmp_djkstra(djk_var->route_int[pi], djk_var->route_int[r]) > 0) {
+//             // if (mx_strlen(djk_var->route_int[pi]) != mx_strlen(djk_var->route_int[r])) {
+//                 mx_swap_elements(&djk_var->route_int[pi], &djk_var->route_int[r]);
+//                 mx_swap_elements(&djk_var->route_char[pi], &djk_var->route_char[r]);
+//                 swaps++;
+//             // }
+//             pi++;
+//             r--;
+//         }
+//     }
+//     return swaps + mx_quicksort_djkstra(djk_var, left, pi - 1) + mx_quicksort_djkstra(djk_var, pi, right);
+// }
+
+static int mx_partition_djkstra (t_dijk *djk_var, int left, int right) {
+    char *pivot = djk_var->route_int[(left + (right - 1) / 2)];
+    int pindex = left;
+    char *temp = NULL;
+
+    for (int i = left; i < right - 1; i++) {
+        if (mx_strcmp_djkstra(djk_var->route_int[i], pivot) < 0) {
+            temp = djk_var->route_int[i];
+            djk_var->route_int[i] = djk_var->route_int[pindex];
+            djk_var->route_int[pindex] = temp;
+            temp = djk_var->route_char[i];
+            djk_var->route_char[i] = djk_var->route_char[pindex];
+            djk_var->route_char[pindex] = temp;
+            pindex++;
+        }
+    }
+    temp = djk_var->route_int[right - 1];
+    djk_var->route_int[right - 1] = djk_var->route_int[pindex];
+    djk_var->route_int[pindex]= temp;
+
+    temp = djk_var->route_char[right - 1];
+    djk_var->route_char[right - 1] = djk_var->route_char[pindex];
+    djk_var->route_char[pindex]= temp;
+    return pindex;
+} 
+
+int mx_quicksort_djkstra(t_dijk *djk_var, int left, int right) {
+    int counter = 0;
+    int pIndex = 0;
+
+    if (djk_var->route_int == NULL) return -1;
+    if (left < right) {
+        counter++;
+        pIndex = mx_partition_djkstra(djk_var, left, right);
+        counter += mx_quicksort_djkstra(djk_var, left, pIndex - 1);
+        counter += mx_quicksort_djkstra(djk_var, pIndex + 1, right);
+    } 
+    return counter;
+}
+
 void mx_set_final_output(t_dijk *djk_var, t_main *vars) {
     int temp = vars->nmb_isld;
 
     djk_var->cnt_parents = 0;
+    djk_var->cnt_before = 0;
+    djk_var->index_for_sort = (int *)malloc(temp
+    * temp * temp * sizeof(int));
     djk_var->path = (char **)malloc(temp
     * temp *  temp * sizeof(char *));
-    djk_var->route = (char **)malloc(temp
+    djk_var->route_char = (char **)malloc(temp
+    * temp *  temp * sizeof(char *));
+    djk_var->route_int = (char **)malloc(temp
     * temp *  temp * sizeof(char *));
     djk_var->dist = (char **)malloc(temp
     * temp * temp * sizeof(char *));
     for (int i = 0; i < temp * temp * temp; i++) {
         djk_var->path[i] = NULL;
-        djk_var->route[i] = NULL;
+        djk_var->route_int[i] = NULL;
+        djk_var->route_char[i] = NULL;
         djk_var->dist[i] = NULL;
     }
 }
 
-int mx_find_isld() {
-    
-}
 
-void mx_sort_all (t_dijk *djk_var) {
-    for (int k = 0; k < djk_var->cnt_parents; k++) {
-        for (int i = 0; djk_var->parent[k][i] != "\0"; i++) {
-
-        }
-    }
-}
-
-void mx_print_all_path(t_dijk *djk_var) {
-    mx_sort_all(djk_var);
+static void mx_print_all_path(t_dijk *djk_var) {
+    int j = 0;
+    int temp_j = 0;
 
     for (int i = 0; i < djk_var->cnt_parents; i++) {
+        if (i == djk_var->index_for_sort[j]) {
+            temp_j = i + 1;
+            for (;temp_j == djk_var->index_for_sort[j + 1];) {
+                temp_j++;
+                j++;
+                // printf("debug %2d  %2d  %2d\n", i, temp_j, djk_var->index_for_sort[j + 1]);
+            }
+            // printf("debug1 %2d  %2d\n", i, temp_j);
+            mx_quicksort_djkstra(djk_var,
+            i,
+            temp_j);
+            j++;
+        }
+
         mx_printstr("========================================\n");
         mx_printstr("Path: ");
         mx_printstr(djk_var->path[i]);
+        // mx_printstr("\nRoute: ");
+        // mx_printstr(djk_var->route_int[i]);
         mx_printstr("\nRoute: ");
-        mx_printstr(djk_var->route[i]);
+        mx_printstr(djk_var->route_char[i]);
         mx_printstr("\nDistance: ");
         mx_printstr(djk_var->dist[i]);
         mx_printstr("\n========================================\n");
@@ -582,12 +749,16 @@ void mx_free_fn(t_main *vars, t_grph *graph, t_dijk *djk_var) {
         free(djk_var->dist[i]);
         djk_var->dist[i] = NULL;
 
-        free(djk_var->route[i]);
-        djk_var->route[i] = NULL;
+        free(djk_var->route_int[i]);
+        djk_var->route_int[i] = NULL;
+        free(djk_var->route_char[i]);
+        djk_var->route_char[i] = NULL;
     }
     free(djk_var->path);
     free(djk_var->dist);
-    free(djk_var->route);
+    free(djk_var->route_char);
+    free(djk_var->route_int);
+    free(djk_var->index_for_sort);
     free(djk_var);
 
     for (int i = 0; i < vars->nmb_isld; i++)
@@ -627,11 +798,14 @@ int main(int argc, char const *argv[]) {
     //     printf("%3s", graph->isld[i]);
     // }
     // printf("\n");
-    for (int i = 0; i < vars->nmb_isld; i++)
+    for (int i = 0; i < vars->nmb_isld - 1; i++)
         mx_dijkstra(i, vars, graph, djk_var);
+    // for (int i = 0; i < djk_var->cnt_before; i++) {
+    //     printf("%4d", djk_var->index_for_sort[i]);
+    // }
+    // printf("\n");
     mx_print_all_path(djk_var);
     mx_free_fn(vars, graph, djk_var);
     // system("leaks -q pathfinder");
     return 0;
 }
-
