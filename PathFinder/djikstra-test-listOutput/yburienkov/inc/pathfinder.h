@@ -44,7 +44,7 @@ void mx_check_valid_file(int nmb_argc, char const *rl_argv, t_main *vars);
 char *mx_strjoin_mod1(char *s1, char s2);
 char *mx_addstr(char *str, char *arr);
 int mx_get_rslt_rdline(t_main *vars, int j);
-void mx_add_to_graph(t_main *vars, t_grph *graph, int j);
+void mx_add_to_graph(t_main *vars, t_grph *graph, int j, int i);
 char **mx_crt_isld_matrix(t_main *vars, t_grph *graph);
 void mx_free_vars_str(t_main *vars, int *j, int *index);
 void mx_set_weight_arr(t_grph *graph, t_main *vars, int arr[]);

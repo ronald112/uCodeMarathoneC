@@ -18,7 +18,7 @@ RAW = mx_wrong_line mx_create_graph mx_create_vars mx_check_valid_1Line \
 SRC = $(addsuffix .c, $(RAW))
 OBJ = $(addsuffix .o, $(RAW))
 
-CFLAGS = -std=c11 -Wall -Wextra -Wpedantic
+CFLAGS = -std=c11 -Wall -Wextra -Wpedantic -Werror
 #-Werror
 LFLAGS = -ILibmx/inc
 

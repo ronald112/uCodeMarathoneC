@@ -32,8 +32,7 @@ void mx_dijkstra(int src, t_grph *graph, t_fin_out *fin_out) {
     }
 
     mx_create_routes(fin_out);
-    mx_sort_list_djkstra(fin_out->l_route, cmp); //
-    mx_print_routes(fin_out, graph); //
-
+    mx_sort_list_djkstra(fin_out->l_route, cmp);
+    mx_print_routes(fin_out, graph);
     mx_free_djkstra(fin_out);
 }
