@@ -2,45 +2,70 @@ NAME = pathfinder
 
 CC = clang
 
-INC = pathfinder.h
+LIB = libmx.a
 
-RAW = mx_wrong_line mx_create_graph mx_create_vars mx_check_valid_1Line \
-	mx_check_isvalid_alpha mx_first_check mx_check_file_empty \
-	mx_check_valid_frst_line mx_check_valid_file mx_strjoin_mod1 \
-	mx_get_rslt_rdline mx_add_to_graph mx_add_to_isld mx_crt_isld_matrix \
-	mx_free_vars_str mx_set_weight_arr mx_crt_isld_matrix_copy \
-	mx_free_fn mx_get_min_distance mx_add_to_begin \
-	mx_create_routes mx_lutil \
-	mx_free_djkstra mx_sort_list_djkvar \
-	mx_print_routes mx_set_start_vars mx_add_parent_and_weight \
-	mx_dijkstra mx_addstr mx_main
+RAW = wrong_line create_graph create_vars check_valid_1Line \
+	check_isvalid_alpha first_check check_file_empty \
+	check_valid_frst_line check_valid_file strjoin_mod1 \
+	get_rslt_rdline add_to_graph add_to_isld crt_isld_matrix \
+	free_vars_str set_weight_arr crt_isld_matrix_copy \
+	free_fn get_min_distance add_to_begin \
+	create_routes lutil \
+	free_djkstra sort_list_djkvar \
+	print_routes set_start_vars add_parent_and_weight \
+	dijkstra addstr main
 
-SRC = $(addsuffix .c, $(RAW))
-OBJ = $(addsuffix .o, $(RAW))
+SRC_DIR = ./src/
+OBJ_DIR = ./obj/
+LIB_DIR = ./libmx/
 
-CFLAGS = -std=c11 -Wall -Wextra -Wpedantic -Werror
-#-Werror
-LFLAGS = -ILibmx/inc
+SRC = $(addprefix $(SRC_DIR), $(addprefix mx_, $(addsuffix .c, $(RAW))))
+OBJ = $(addprefix $(OBJ_DIR), $(addprefix mx_, $(addsuffix .o, $(RAW))))
+LIB_PATH = $(addprefix $(LIB_DIR), $(LIB))
 
-#@$(CC) $(CFLAGS) -c $(SRC) -I $(INC) -v
+WFLAGS = -std=c11 -Wall -Wextra -Werror -Wpedantic
+LFLAGS = -Iinc -Ilibmx/inc
+CFLAGS = -Ofast -march=native -pipe -fomit-frame-pointer
+DFLAGS = -O0 -g -fsanitize=address
 
 all: install clean
 
-install:
-	@make install -sC libmx
-	@cp $(addprefix src/, $(SRC)) .
-	@cp $(addprefix inc/, $(INC)) .
-	@$(CC) $(CFLAGS) -c $(SRC) -I $(INC)
-	@$(CC) $(CFLAGS) libmx/libmx.a $(OBJ) -o $(NAME)
-	@mkdir -p obj
-	@mv $(OBJ) ./obj
+$(OBJ_DIR):
+	@mkdir -p $(OBJ_DIR)
 
-uninstall: clean
-	@make uninstall -sC libmx
-	@rm -rf $(NAME)
+$(LIB):
+	@make -sC $(LIB_DIR) -f Makefile install
+
+# install
+$(OBJ_DIR)%.o: $(SRC_DIR)%.c
+	@$(CC) $(WFLAGS) $(LFLAGS) -o $@ -c $<
+
+$(NAME): $(OBJ_DIR) $(OBJ)
+	@$(CC) $(WFLAGS) $(LFLAGS) $(OBJ) -o $(NAME) $(LIB_PATH)
+
+# optimize
+# $(OBJ_DIR)%.o: $(SRC_DIR)%.c
+# 	@$(CC) $(WFLAGS) $(LFLAGS) $(CFLAGS) -o $@ -c $<
+
+# $(NAME): $(OBJ_DIR) $(OBJ)
+# 	@$(CC) $(WFLAGS) $(LFLAGS) $(CFLAGS) $(OBJ) -o $(NAME) $(LIB_PATH)
+
+# debug
+# $(OBJ_DIR)%.o: $(SRC_DIR)%.c
+# 	@$(CC) $(WFLAGS) $(LFLAGS) $(DFLAGS) -o $@ -c $<
+
+# $(NAME): $(OBJ_DIR) $(OBJ)
+# 	@$(CC) $(WFLAGS) $(LFLAGS) $(DFLAGS) $(OBJ) -o $(NAME) $(LIB_PATH)
+
+install: $(LIB) $(NAME)
 
 clean:
-	@make clean -sC libmx
-	@rm -rf $(INC) $(SRC) $(OBJ) ./obj
+	@make -sC $(LIB_DIR) -f Makefile clean
+	@rm -rf $(OBJ_DIR)
+
+uninstall:
+	@make -sC $(LIB_DIR) -f Makefile uninstall
+	@rm -rf $(NAME)
+	@rm -rf $(OBJ_DIR)
 
 reinstall: uninstall install

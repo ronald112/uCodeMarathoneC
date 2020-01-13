@@ -1,6 +1,6 @@
 #ifndef PATHFINDER_H
 #define PATHFINDER_H
-#include "Libmx/inc/libmx.h"
+#include "libmx.h"
 
 typedef struct s_graph {
     char *file_str;

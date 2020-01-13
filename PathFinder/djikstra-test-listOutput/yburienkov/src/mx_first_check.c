@@ -8,7 +8,7 @@ void mx_first_check(int *fd, int nmb_argc, char const *rl_argv) {
     if ((*fd = open(rl_argv, O_RDONLY)) == -1) {
         mx_printerr("error: file ");
         mx_printerr(rl_argv);
-        mx_printerr(" doesn't exist\n");
+        mx_printerr(" does not exist\n");
         exit(1);
     }
 }
