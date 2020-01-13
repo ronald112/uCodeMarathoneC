@@ -47,7 +47,7 @@ void *mx_realloc(void *ptr, size_t size) {
         return NULL;
     if (!ptr)
         return new_ptr;
-    size_t size_ptr = malloc_usable_size(ptr); // malloc_size(ptr); // malloc_usable_size(ptr);
+    size_t size_ptr = malloc_size(ptr); // malloc_usable_size(ptr); //  
     //printf("%zu\n", size_ptr);
     mx_memcpy(new_ptr, ptr, (size_ptr > size ? size : size_ptr));
     free(ptr);

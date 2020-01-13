@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "pathfinder.h": "c",
+        "libmx.h": "c",
+        "malloc.h": "c"
+    }
+}
