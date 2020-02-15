@@ -1,0 +1,3 @@
+git add t00
+git commit -m "task00 22.07.19"
+git push
