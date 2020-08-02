@@ -1,3 +1,12 @@
 [submodule "Study/libmx"]
 	path = Study/libmx
 	url = https://github.com/ronald112/libmx
+[submodule "Study/uls"]
+	path = Study/uls
+	url = https://github.com/ronald112/uls
+[submodule "Study/ush"]
+	path = Study/ush
+	url = https://github.com/ronald112/ush
+[submodule "Study/uchat"]
+	path = Study/uchat
+	url = https://github.com/ronald112/uchat
